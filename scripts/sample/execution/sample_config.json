@@ -1,0 +1,16 @@
+{
+  "experiment_id": "exp_sample_001",
+  "model_config": {
+    "type": "cnn_custom",
+    "activation": "gelu",
+    "layers": ["conv", "batchnorm", "maxpool"]
+  },
+  "dataset": "cifar10",
+  "metrics": ["accuracy", "f1_score", "loss"],
+  "baselines": ["cnn_basic", "resnet18"],
+  "training_params": {
+    "epochs": 2,
+    "batch_size": 128,
+    "learning_rate": 0.001
+  }
+}
