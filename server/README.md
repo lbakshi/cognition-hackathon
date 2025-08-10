@@ -1,20 +1,20 @@
 # Server
 
-Simple Express API for Railway deployments.
+Simple FastAPI server for Railway or local deployments.
 
 ## Development
 
 ```bash
-npm install
-npm start
+poetry install
+poetry run uvicorn server.main:app --reload
 ```
 
 The server listens on the `PORT` environment variable (defaults to `3000`).
 
 ## Deployment
 
-Use the default Node.js environment on Railway with the start command:
+Use a standard Python environment with the start command:
 
 ```
-npm start
+poetry run uvicorn server.main:app
 ```
