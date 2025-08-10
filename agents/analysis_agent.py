@@ -1,5 +1,6 @@
 # agents/analysis_agent.py
 from typing import Dict, Any, List
+import json
 
 def run(client, experiment_results: List[Dict], original_hypothesis: str, model_name: str) -> str:
     """
