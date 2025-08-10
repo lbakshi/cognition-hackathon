@@ -15,9 +15,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const tabs = document.getElementById('tabs');
     tabs.style.display = 'block';
 
+    const baseUrl = window.API_BASE_URL || '';
+
     // Plan
     selectTab('plan');
-    const planRes = await fetch('/api/plan', {
+    const planRes = await fetch(`${baseUrl}/api/plan`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt: input })
@@ -27,7 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Codegen
     selectTab('codegen');
-    const codegenRes = await fetch('/api/codegen', { method: 'POST' });
+    const codegenRes = await fetch(`${baseUrl}/api/codegen`, { method: 'POST' });
     const codegenData = await codegenRes.json();
     const fileTabs = document.getElementById('file-tabs');
     const fileContent = document.getElementById('file-content');
@@ -48,13 +50,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Execute
     selectTab('execute');
-    const executeRes = await fetch('/api/execute', { method: 'POST' });
+    const executeRes = await fetch(`${baseUrl}/api/execute`, { method: 'POST' });
     const executeData = await executeRes.json();
     document.getElementById('execute-output').textContent = JSON.stringify(executeData, null, 2);
 
     // Report
     selectTab('report');
-    const reportRes = await fetch('/api/report', { method: 'POST' });
+    const reportRes = await fetch(`${baseUrl}/api/report`, { method: 'POST' });
     const reportData = await reportRes.json();
     document.getElementById('report-output').textContent = reportData.summary;
   });
