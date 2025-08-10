@@ -4,14 +4,14 @@ version = "0.1.0"
 description = "ML Experiment Runner with Modal Serverless Infrastructure"
 authors = ["Your Name <you@example.com>"]
 readme = "README.md"
-packages = [{include = "scripts"}, {include = "server"}, {include = "infra"}]
+packages = [{include = "scripts"}]
 
 [tool.poetry.dependencies]
 python = "^3.9"
 jupyter = "^1.0.0"
 notebook = "^7.0.0"
 ipykernel = "^6.25.0"
-modal = "^0.62.0"
+modal = "^0.68.0"
 torch = ">=2.0.0"
 torchvision = ">=0.15.0"
 scikit-learn = "^1.3.0"
@@ -33,6 +33,7 @@ flake8 = "^6.1.0"
 mypy = "^1.5.0"
 ipywidgets = "^8.1.0"
 nbconvert = "^7.9.0"
+jupyter = "^1.1.1"
 
 [build-system]
 requires = ["poetry-core"]
