@@ -1,0 +1,26 @@
+{
+  "success_criteria": {
+    "min_accuracy": 0.6,
+    "max_training_time": 300,
+    "required_metrics": ["accuracy", "f1_score", "loss"]
+  },
+  "comparison_metrics": [
+    {
+      "name": "accuracy_improvement",
+      "baseline": "baseline_cnn",
+      "target": "custom_model",
+      "threshold": 0.02
+    },
+    {
+      "name": "training_efficiency",
+      "metric": "training_time",
+      "max_value": 180
+    }
+  ],
+  "output_artifacts": [
+    "loss_curves.png",
+    "accuracy_curves.png",
+    "benchmark_comparison.csv",
+    "results_summary.json"
+  ]
+}

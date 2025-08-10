@@ -1,0 +1,52 @@
+{
+  "experiment_id": "exp_multi_model_001",
+  "experiments": [
+    {
+      "name": "gelu_activation_test",
+      "model_config": {
+        "type": "cnn_custom",
+        "activation": "gelu",
+        "layers": ["conv", "batchnorm", "maxpool"],
+        "dropout": 0.3
+      }
+    },
+    {
+      "name": "depthwise_separable_test",
+      "model_config": {
+        "type": "depthwise_separable",
+        "activation": "gelu",
+        "use_batch_norm": true
+      }
+    },
+    {
+      "name": "resnet_baseline",
+      "model_config": {
+        "type": "resnet18",
+        "pretrained": false
+      }
+    },
+    {
+      "name": "mobilenet_test",
+      "model_config": {
+        "type": "mobilenet",
+        "width_multiplier": 1.0,
+        "resolution_multiplier": 1.0
+      }
+    }
+  ],
+  "dataset": "cifar10",
+  "metrics": ["accuracy", "f1_score", "loss", "inference_time"],
+  "training_params": {
+    "epochs": 3,
+    "batch_size": 128,
+    "learning_rate": 0.001,
+    "optimizer": "adam",
+    "early_stopping": true,
+    "patience": 3
+  },
+  "evaluation": {
+    "cross_validation": false,
+    "test_split": 0.2,
+    "seed": 42
+  }
+}
