@@ -16,8 +16,9 @@ def run(client, experiment_plan: Dict, model_to_implement: Dict, model_name: str
     1. The script must be fully self-contained and runnable.
     2. Import all necessary libraries (torch, torchvision, scikit-learn, etc.).
     3. The script MUST define the model class, load the specified dataset, and contain the full training and evaluation loop.
-    4. AT THE VERY END of the script, it MUST print a single JSON object to standard output containing the final evaluation metrics. This is how the system will capture the results. The JSON object should look like: {"status": "completed", "metrics": {"accuracy": 0.91, ...}}. Do not print anything else after this JSON object.
-    5. Handle both training and validation/testing loops correctly.
+    4. Add clear print logging to console so the experimenter can track what's going on.
+    5. AT THE VERY END of the script, it MUST print a single JSON object to standard output containing the final evaluation metrics. This is how the system will capture the results. The JSON object should look like: {"status": "completed", "metrics": {"accuracy": 0.91, ...}}. Do not print anything else after this JSON object.
+    6. Handle both training and validation/testing loops correctly.
     """
 
     # This context can now be built directly, without .get(), because the plan is guaranteed to be valid.
