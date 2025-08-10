@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Cognition Hackathon Frontend</title>
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    #tabs { margin-top: 20px; }
+    .tab-buttons { display: flex; gap: 4px; margin-bottom: 10px; }
+    .tab-buttons button { padding: 5px 10px; }
+    .tab-content { display: none; border: 1px solid #ccc; padding: 10px; }
+    .tab-content.active { display: block; }
+    .tab-buttons button.active { background: #007bff; color: #fff; }
+    #file-tabs button { margin-right: 4px; }
+  </style>
+</head>
+<body>
+  <h1>Cognition Research UI</h1>
+  <div id="chat">
+    <input id="research-input" type="text" placeholder="Describe your experiment" style="width:70%" />
+    <button id="start-btn">Start</button>
+  </div>
+
+  <div id="tabs" style="display:none;">
+    <div class="tab-buttons">
+      <button class="tab-button active" data-tab="plan">Plan</button>
+      <button class="tab-button" data-tab="codegen">Codegen</button>
+      <button class="tab-button" data-tab="execute">Execute</button>
+      <button class="tab-button" data-tab="report">Report</button>
+    </div>
+    <div id="plan" class="tab-content active"><pre id="plan-output"></pre></div>
+    <div id="codegen" class="tab-content">
+      <div id="file-tabs"></div>
+      <pre id="file-content"></pre>
+    </div>
+    <div id="execute" class="tab-content"><pre id="execute-output"></pre></div>
+    <div id="report" class="tab-content"><pre id="report-output"></pre></div>
+  </div>
+
+  <script src="/config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
+
