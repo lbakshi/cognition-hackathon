@@ -158,3 +158,46 @@ Feels like something you could scale to real research with more time.
 If you want, I can give you a 5-hour build plan that gets you from blank repo to demo-ready with this scoped “Auto-Experiment Designer & Runner” — so you can walk in and impress judges without frying your GPU.
 Do you want me to draft that plan?
 
+### Example Demo Flow
+Input from researcher:
+ “I want to test a convolutional network that uses GELU activations and depthwise separable convolutions.”
+
+
+AI Planning Agent:
+
+
+Chooses metrics: accuracy, F1-score
+
+
+Chooses baselines: Standard CNN, ResNet18
+
+
+Chooses dataset: CIFAR-10 (already downloaded)
+
+
+Sets training params: 3 epochs for speed
+
+
+AI Codegen Agent:
+
+
+Takes a PyTorch CNN template and modifies it to use GELU + depthwise separable layers.
+
+
+Generates training script, evaluation script.
+
+
+Execution Agent:
+
+
+Runs experiments on CPU/tiny GPU for minutes.
+
+
+Produces plots + results.
+
+
+AI Reporting Agent:
+
+
+Writes a 3–5 sentence “research finding” summary.
+
