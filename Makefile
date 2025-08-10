@@ -1,4 +1,4 @@
-.PHONY: help install notebook run-notebook execute test clean modal-auth jupyter-kernel modal-run modal-test
+.PHONY: help install notebook run-notebook execute test clean modal-auth jupyter-kernel modal-run modal-test server frontend dev-local stop-local
 
 # Default target
 help:
@@ -13,6 +13,11 @@ help:
 	@echo "  make modal-run     - Run Modal execution service"
 	@echo "  make modal-test    - Test Modal execution with sample experiment"
 	@echo "  make jupyter-kernel - Install Jupyter kernel for Poetry environment"
+	@echo ""
+	@echo "Local Development:"
+	@echo "  make server        - Start the FastAPI backend server (port 8000)"
+	@echo "  make frontend      - Start the Express.js frontend server (port 3000)"
+	@echo "  make dev-local     - Start both server and frontend in background"
 
 # Install dependencies
 install:
@@ -129,3 +134,39 @@ modal-test:
 	@echo "Testing Modal execution with sample experiment..."
 	@echo "Submitting test experiment to Modal runtime..."
 	poetry run modal run modal_online.py
+
+# Local Development Commands
+server:
+	@echo "Starting FastAPI backend server on port 8000..."
+	@echo "API will be available at: http://localhost:8000"
+	@echo "Press Ctrl+C to stop"
+	cd src/server && poetry run python main.py
+
+frontend:
+	@echo "Starting Express.js frontend server on port 3000..."
+	@echo "Frontend will be available at: http://localhost:3000"
+	@echo "Press Ctrl+C to stop"
+	cd src/frontend && npm start
+
+dev-local:
+	@echo "Starting both server and frontend in background..."
+	@echo "Backend API: http://localhost:8000"
+	@echo "Frontend: http://localhost:3000"
+	@echo ""
+	@echo "Starting backend server..."
+	@cd src/server && nohup poetry run python main.py > ../../server.log 2>&1 &
+	@echo "Backend started with PID: $$(pgrep -f 'python main.py')"
+	@echo ""
+	@echo "Starting frontend server..."
+	@cd src/frontend && nohup npm start > ../../frontend.log 2>&1 &
+	@echo "Frontend started with PID: $$(pgrep -f 'node server.js')"
+	@echo ""
+	@echo "✓ Both services are running in background!"
+	@echo "Check server.log and frontend.log for output"
+	@echo "To stop both: make stop-local"
+
+stop-local:
+	@echo "Stopping local development services..."
+	@pkill -f "python main.py" || true
+	@pkill -f "node server.js" || true
+	@echo "✓ Services stopped"
