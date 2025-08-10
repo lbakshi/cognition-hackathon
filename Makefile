@@ -1,4 +1,4 @@
-.PHONY: help install notebook run-notebook execute test clean modal-auth jupyter-kernel
+.PHONY: help install notebook run-notebook execute test clean modal-auth jupyter-kernel modal-run modal-test
 
 # Default target
 help:
@@ -10,6 +10,8 @@ help:
 	@echo "  make test          - Run tests"
 	@echo "  make clean         - Clean cache and temporary files"
 	@echo "  make modal-auth    - Authenticate with Modal"
+	@echo "  make modal-run     - Run Modal execution service"
+	@echo "  make modal-test    - Test Modal execution with sample experiment"
 	@echo "  make jupyter-kernel - Install Jupyter kernel for Poetry environment"
 
 # Install dependencies
@@ -115,3 +117,15 @@ modal-status:
 	else \
 		echo "⚠ No Modal token in environment. Run 'make modal-auth' to authenticate"; \
 	fi
+
+# Run Modal execution service
+modal-run:
+	@echo "Starting Modal execution service..."
+	@echo "This will spin up the Modal runtime for ML experiments"
+	poetry run python src/modal_execution.py
+
+# Test Modal execution with sample experiment
+modal-test:
+	@echo "Testing Modal execution with sample experiment..."
+	@echo "Submitting test experiment to Modal runtime..."
+	poetry run modal run modal_online.py
