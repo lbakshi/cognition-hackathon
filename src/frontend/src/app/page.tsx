@@ -1,12 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import ExperimentForm from '@/components/ExperimentForm'
-import ResultsDashboard from '@/components/ResultsDashboard'
-import LoadingState from '@/components/LoadingState'
-import { ExperimentResult, ExperimentStatus } from '@/types/experiment'
-import { demoExperimentResults } from '@/lib/demo-data'
-import { simulateAPICall } from '@/lib/utils'
+import ExperimentForm from '../components/ExperimentForm'
+import ResultsDashboard from '../components/ResultsDashboard'
+import LoadingState from '../components/LoadingState'
+import { ExperimentResult, ExperimentStatus } from '../types/experiment'
+import { demoExperimentResults } from '../lib/demo-data'
+import { simulateAPICall } from '../lib/utils'
 
 export default function Home() {
   const [experimentStatus, setExperimentStatus] = useState<ExperimentStatus>({
