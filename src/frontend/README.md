@@ -18,3 +18,7 @@ Use the default Node.js environment on Railway with the start command:
 ```
 npm start
 ```
+
+Set the `API_BASE_URL` environment variable to the URL of your FastAPI
+backend (e.g. `https://your-server.up.railway.app`) so the frontend can
+communicate with it.
