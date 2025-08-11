@@ -1,14 +1,14 @@
 [variables]
-NIXPACKS_BUILD_DIR = "src/frontend"
+NODE_VERSION = "18"
 
 [phases.setup]
-nixPkgs = ["nodejs", "npm"]
+nixPkgs = ["nodejs-18_x", "npm-9_x"]
 
 [phases.install]
-cmds = ["cd src/frontend", "npm ci"]
+cmds = ["cd src/frontend && npm ci"]
 
 [phases.build]
-cmds = ["cd src/frontend", "npm run build"]
+cmds = ["cd src/frontend && npm run build"]
 
 [start]
 cmd = "cd src/frontend && npm start"

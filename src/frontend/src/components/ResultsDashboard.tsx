@@ -2,9 +2,9 @@
 
 import { BarChart3, TrendingUp, Target, Award } from 'lucide-react'
 import MetricChart from './MetricChart'
-import { ExperimentResult } from '../types/experiment'
-import { experimentLabels, metricColors } from '../lib/demo-data'
-import { formatMetricValue } from '../lib/utils'
+import { ExperimentResult } from '@/types/experiment'
+import { experimentLabels, metricColors } from '@/lib/demo-data'
+import { formatMetricValue } from '@/lib/utils'
 
 interface ResultsDashboardProps {
   data: ExperimentResult
