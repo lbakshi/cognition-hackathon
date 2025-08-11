@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Send, Sparkles } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn } from '../lib/utils'
 
 interface ExperimentFormProps {
   onSubmit: (prompt: string) => void

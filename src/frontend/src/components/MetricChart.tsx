@@ -1,9 +1,9 @@
 'use client'
 
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
-import { ExperimentResult } from '@/types/experiment'
-import { experimentLabels, metricColors } from '@/lib/demo-data'
-import { formatMetricValue, formatEpoch } from '@/lib/utils'
+import { ExperimentResult } from '../types/experiment'
+import { experimentLabels, metricColors } from '../lib/demo-data'
+import { formatMetricValue, formatEpoch } from '../lib/utils'
 
 interface MetricChartProps {
   data: ExperimentResult
