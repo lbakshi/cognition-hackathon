@@ -8,8 +8,11 @@ dev-server-verbose:
 	PYTHONUNBUFFERED=1 poetry run uvicorn main:app --reload --host 0.0.0.0 --port 8000 --log-level debug
 
 # Integration tests
-test: ## Run a single integration test
+test: ## Run a single integration test (waits for completion)
 	poetry run python test_integration.py --query "Create a machine learning model for sentiment analysis"
+
+test-quick: ## Quick API test without waiting for completion
+	poetry run python test_quick.py
 
 test-cancel: ## Test cancellation functionality
 	poetry run python test_integration.py --query "Build a complex deep learning pipeline" --cancel-after 3

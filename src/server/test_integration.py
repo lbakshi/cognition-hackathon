@@ -25,9 +25,9 @@ async def start_experiment(query: str):
         print(f"   Query: {query}")
         return experiment_id
 
-async def poll_status(experiment_id: str, interval: float = 1.0, max_polls: int = 60):
+async def poll_status(experiment_id: str, interval: float = 2.0, max_polls: int = 600):
     """Poll experiment status and display updates"""
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=60.0) as client:
         last_stage = None
         polls = 0
         
@@ -72,9 +72,10 @@ async def poll_status(experiment_id: str, interval: float = 1.0, max_polls: int 
             await asyncio.sleep(interval)
             polls += 1
             
-            # Print dots to show we're still polling
-            if polls % 5 == 0:
-                print(".", end="", flush=True)
+            # Print progress indicator
+            if polls % 10 == 0 and polls > 0:
+                elapsed = polls * interval
+                print(f"\n⏱️  Elapsed: {elapsed:.0f}s - Still running...", end="", flush=True)
         
         print(f"\n⏱️  Timeout: Experiment still running after {max_polls} polls")
         return "timeout"

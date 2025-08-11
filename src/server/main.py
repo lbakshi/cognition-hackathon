@@ -75,55 +75,6 @@ class KVUpdateRequest(BaseModel):
     key: str
     value: Any
 
-async def run_orchestrator_background(experiment_id: str, query: str):
-    """Run orchestrator_prod in background and update Redis with progress"""
-    try:
-        await redis_client.hset(f"experiment:{experiment_id}", mapping={
-            "status": "running",
-            "stage": "conceptualization",
-            "started_at": datetime.now().isoformat(),
-            "query": query
-        })
-        
-        # Import and run orchestrator logic
-        # For now, simulate the process - you'll need to adapt orchestrator_prod.py
-        import time
-        
-        # Simulate conceptualization
-        await redis_client.hset(f"experiment:{experiment_id}", "stage", "conceptualization")
-        await redis_client.hset(f"experiment:{experiment_id}:plan", "status", "in_progress")
-        await asyncio.sleep(2)  # Simulate work
-        
-        # Simulate strategy
-        await redis_client.hset(f"experiment:{experiment_id}", "stage", "strategy")
-        await redis_client.hset(f"experiment:{experiment_id}:plan", "status", "completed")
-        await redis_client.hset(f"experiment:{experiment_id}:plan", "result", json.dumps({"plan": "ML experiment plan"}))
-        await asyncio.sleep(2)
-        
-        # Simulate code generation
-        await redis_client.hset(f"experiment:{experiment_id}", "stage", "codegen")
-        await redis_client.hset(f"experiment:{experiment_id}:codegen", "status", "in_progress")
-        await asyncio.sleep(3)
-        
-        await redis_client.hset(f"experiment:{experiment_id}:codegen", "status", "completed")
-        await redis_client.hset(f"experiment:{experiment_id}:codegen", "files", json.dumps({
-            "main.py": "# Generated experiment code\nprint('Experiment running')",
-            "requirements.txt": "numpy\npandas\nscikit-learn"
-        }))
-        
-        # Complete
-        await redis_client.hset(f"experiment:{experiment_id}", mapping={
-            "status": "completed",
-            "stage": "finished",
-            "completed_at": datetime.now().isoformat()
-        })
-        
-    except Exception as e:
-        await redis_client.hset(f"experiment:{experiment_id}", mapping={
-            "status": "error",
-            "error": str(e),
-            "failed_at": datetime.now().isoformat()
-        })
 
 @app.get("/api/hello")
 async def read_hello():
@@ -142,7 +93,8 @@ async def start_experiment(request: StartExperimentRequest, background_tasks: Ba
     })
     
     # Start orchestrator in background
-    background_tasks.add_task(run_orchestrator_background, experiment_id, request.query)
+    from run_orchestrator import run_orchestrator_background
+    background_tasks.add_task(run_orchestrator_background, experiment_id, request.query, redis_client)
     
     return {"experiment_id": experiment_id}
 
