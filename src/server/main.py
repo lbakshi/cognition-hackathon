@@ -77,7 +77,7 @@
 # main.py
 from fastapi import FastAPI, BackgroundTasks
 from pydantic import BaseModel
-import orchestrator
+import orchestrator_app
 
 # Pydantic model for the incoming request body
 class ResearchRequest(BaseModel):
@@ -99,7 +99,7 @@ def run_research_task(job_id: str, research_idea: str):
     """
     try:
         # The orchestrator's main function now returns the final results path
-        result_paths = orchestrator.main(research_idea=research_idea, job_id=job_id)
+        result_paths = orchestrator_app.main(research_idea=research_idea, job_id=job_id)
         if result_paths:
             job_status[job_id] = {"status": "COMPLETED", **result_paths}
         else:
