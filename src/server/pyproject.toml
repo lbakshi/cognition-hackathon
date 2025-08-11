@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "ML Experiment Runner with Modal Serverless Infrastructure"
 authors = ["Your Name <you@example.com>"]
 readme = "README.md"
-packages = [{include = "scripts"}]
+packages = [{include = "src"}]
 
 [tool.poetry.dependencies]
 python = "^3.9"
@@ -26,6 +26,8 @@ pydantic = "^2.5.0"
 python-multipart = "^0.0.6"
 anthropic = "^0.62.0"
 python-dotenv = "^1.0.0"
+redis = "^5.0.0"
+openai = "^1.0.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.0"
