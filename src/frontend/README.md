@@ -1,4 +1,4 @@
-# Cognition Research Frontend
+# Voxe Frontend
 
 Beautiful ML experiment dashboard built with Next.js 15, TypeScript, and Tailwind CSS.
 

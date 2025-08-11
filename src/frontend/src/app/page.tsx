@@ -74,7 +74,7 @@ export default function Home() {
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-6xl font-bold gradient-text mb-4">
-            Cognition Research
+            Voxe
           </h1>
           <p className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
             AI-powered research platform that designs, runs, and analyzes 
@@ -144,7 +144,7 @@ export default function Home() {
 
         {/* Footer */}
         <div className="text-center mt-16 text-sm text-gray-500 dark:text-gray-400">
-          <p>Powered by Next.js 15, Claude 4.1, and Modal serverless infrastructure</p>
+          <p>Built with  ❤️ using Modal, Claude 4.1, nextJS at cognition hackathon</p>
         </div>
       </div>
     </main>
