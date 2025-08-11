@@ -3,7 +3,6 @@ import json
 from typing import Dict, Any, Optional
 
 def extract_json_from_response(response_text: str) -> str:
-    # This helper function is correct and stays the same
     try:
         json_start_index = response_text.find('{')
         json_end_index = response_text.rfind('}')
@@ -19,52 +18,72 @@ def run(client, conceptual_plan: Dict, target_framework: str, model_name: str, p
     else:
         print("INFO: [Strategy Agent] Creating new experiment plan...")
 
-    # --- THIS IS THE UPDATED PROMPT ---
+    # --- NEW, FLEXIBLE PROMPT FOR MULTIPLE TASK TYPES ---
     system_prompt = f"""
-    You are an expert AI research strategist specializing in {target_framework}.
-    Your task is to create a detailed, structured experiment plan in JSON format.
+    You are an expert AI research strategist. Your task is to create a detailed, structured experiment plan in JSON format based on a conceptual plan.
+    You must identify the type of experiment and use the correct JSON schema.
 
-    **IT IS MANDATORY THAT THE OUTPUT JSON OBJECT FOLLOWS THIS EXACT SCHEMA. DO NOT DEVIATE. EVERY KEY SHOWN IN THE EXAMPLE IS REQUIRED. DO NOT ADD EXTRA KEYS.**
+    **CRITICAL:** For any experiment involving iterative training or optimization, you MUST include a `time_series_metrics` key. This key should list the names of important metrics to track at each epoch or iteration (e.g., "training_loss", "validation_accuracy").
 
+    **TYPE 1: Standard Classification/Regression Experiment**
+    If the goal is to train and evaluate a model, use this schema. Propose a candidate and at least one baseline.
     ```json
     {{
-      "experiment_id": "a_unique_string_id",
-      "experiment_name": "A descriptive name for the experiment",
-      "hypothesis": "A clear statement about what is being tested",
-      "dataset": {{ "name": "e.g., CIFAR-10 or IMDB", "source": "e.g., torchvision.datasets.CIFAR10", "validation_split": 0.2 }},
-      "training_parameters": {{ "optimizer": "e.g., Adam", "learning_rate": 0.001, "loss_function": "e.g., CrossEntropyLoss", "batch_size": 64, "epochs": 10 }},
-      "evaluation_metrics": ["accuracy", "precision", "recall", "f1_score"],
+      "experiment_type": "classification",
+      "experiment_id": "...",
+      "experiment_name": "...",
+      "hypothesis": "...",
+      "dataset": {{ "name": "...", "source": "..." }},
+      "training_parameters": {{ "optimizer": "...", "learning_rate": 0.001, ... }},
+      "evaluation_metrics": ["accuracy", "f1_score", ...],
+      "time_series_metrics": ["training_loss", "validation_accuracy"],
       "models": {{
-        "candidate": {{ "model_id": "candidate_model_name", "description": "...", "architecture": [{{ "type": "NameOfLayer", "params": {{...}} }}] }},
-        "baselines": [ {{ "model_id": "baseline_model_name", "description": "...", "architecture": [{{ "type": "NameOfLayer", "params": {{...}} }}] }} ]
+        "candidate": {{ "model_id": "...", "architecture": [...] }},
+        "baselines": [ {{ "model_id": "...", "architecture": [...] }} ]
       }}
     }}
     ```
 
-    The output must be ONLY the JSON object.
+    **TYPE 2: Model Inversion Attack Experiment**
+    If the goal is to reconstruct a class prototype from a trained model, use this specialized schema.
+    ```json
+    {{
+      "experiment_type": "model_inversion_attack",
+      "experiment_id": "...",
+      "experiment_name": "...",
+      "hypothesis": "It is possible to reconstruct a class prototype using gradient-based optimization on a trained model.",
+      "dataset": {{ "name": "...", "source": "..." }},
+      "victim_model_architecture": [
+          {{ "type": "Linear", "params": {{...}} }},
+          {{ "type": "ReLU" }},
+          {{ "type": "Linear", "params": {{...}} }}
+      ],
+      "attack_parameters": {{
+        "target_class_name": "The name of the class to reconstruct",
+        "target_class_index": "The integer index of the target class",
+        "optimizer": "Adam",
+        "learning_rate": 0.1,
+        "iterations": 500
+      }},
+      "time_series_metrics": ["confidence_score"],
+      "evaluation_metrics": ["final_confidence_score", "generated_feature_vector"]
+    }}
+    ```
 
-    If you receive a `previous_error` object, your main goal is to modify the plan to fix it.
-    - If error_type is 'SCHEMA_VALIDATION_ERROR', the 'error_log' contains a list of missing or malformed keys. You MUST fix the JSON structure to match the mandatory schema exactly. This is your highest priority.
-    - If error_type is 'CUDA_OUT_OF_MEMORY', significantly reduce the 'batch_size'.
-    - If error_type is 'DIMENSION_MISMATCH', carefully correct the layer features.
+    The output must be ONLY the JSON object.
+    If you receive a `previous_error`, your main goal is to modify the plan to fix it.
     """
 
     error_context = ""
     if previous_error:
-        error_context = f"""
-        ---
-        REVISION CONTEXT: The last experiment failed. You MUST modify the plan to fix this error.
-        Error Type: {previous_error['error_type']}
-        Error Log: {previous_error['error_log']}
-        ---
-        """
+        error_context = f"REVISION CONTEXT: The last experiment failed. Fix this error: {previous_error}"
 
     user_prompt = f"""
     Conceptual Plan:
     {json.dumps(conceptual_plan, indent=2)}
     {error_context}
 
-    Generate the complete, runnable experiment plan as a single JSON object adhering to the mandatory schema.
+    Generate the complete, runnable experiment plan as a single JSON object, choosing the correct schema based on the conceptual plan's task.
     """
     
     try:
@@ -76,7 +95,8 @@ def run(client, conceptual_plan: Dict, target_framework: str, model_name: str, p
         ).content[0].text
         
         json_string = extract_json_from_response(message_text)
-        return json.loads(json_string)
+        result = json.loads(json_string)
+        return result
 
     except Exception as e:
         raw_response = locals().get('message_text', 'No response from API.')

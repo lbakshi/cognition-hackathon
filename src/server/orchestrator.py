@@ -5,157 +5,143 @@ import anthropic
 from dotenv import load_dotenv
 from typing import Dict, Any, List
 
-# Import agent functions
-from agents import conceptualization_agent, strategy_agent, implementation_agent, experimentation_agent, analysis_agent
+# --- IMPORTANT: Import all agents, including the new Evaluator ---
+from agents import (
+    conceptualization_agent, 
+    strategy_agent, 
+    implementation_agent, 
+    experimentation_agent, 
+    analysis_agent, 
+    debugger_agent, 
+    evaluator_agent
+)
 
 # --- CONFIGURATION ---
 load_dotenv()
-MODEL_NAME = "claude-opus-4-1-20250805"
+MODEL_NAME = "claude-opus-4-1-20250805"  # Use the latest available model from Anthropic
 TARGET_FRAMEWORK = "pytorch"
-MAX_PLAN_RETRIES = 2 
-MAX_EXEC_RETRIES = 1
-
-def validate_plan(plan: Dict) -> List[str]:
-    """
-    Validates the structure of the experiment plan.
-    Returns a list of error messages. An empty list means the plan is valid.
-    """
-    errors = []
-    required_top_keys = ["experiment_id", "experiment_name", "hypothesis", "dataset", 
-                           "training_parameters", "evaluation_metrics", "models"]
-    for key in required_top_keys:
-        if key not in plan:
-            errors.append(f"Missing required top-level key: '{key}'")
-    
-    if "models" in plan:
-        if not isinstance(plan["models"], dict):
-            errors.append("'models' must be a dictionary.")
-        else:
-            if "candidate" not in plan["models"]:
-                errors.append("Missing required key 'candidate' inside 'models'.")
-            if "baselines" not in plan["models"]:
-                errors.append("Missing required key 'baselines' inside 'models'.")
-            elif not isinstance(plan["models"]["baselines"], list):
-                 errors.append("'baselines' must be a list of model objects.")
-
-    return errors
-
+MAX_DEBUG_RETRIES = 2 # Max times the debugger can try to fix the code
 
 def main():
-    """The main orchestration loop."""
+    """
+    The main orchestration loop with the new Evaluator-Debugger workflow.
+    This system mimics the scientific process: Plan -> Execute -> Peer Review -> Debug.
+    """
     print("--- AI Research Lab Initialized ---")
     
+    # 1. Initialize API Client
     try:
         client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
     except KeyError:
-        print("FATAL ERROR: ANTHROPIC_API_KEY not found in .env file.")
+        print("FATAL ERROR: ANTHROPIC_API_KEY not found in .env file. Please create one.")
         return
 
+    # 2. Get Research Idea from User
     research_idea = input("Please enter your research idea:\n> ")
 
-    # 1. Conceptualization
+    # 3. Conceptualization Step
     conceptual_plan = conceptualization_agent.run(client, research_idea, MODEL_NAME)
     if not conceptual_plan:
-        print("Could not start research. Aborting.")
+        print("Could not start research: Conceptualization failed. Aborting.")
         return
-    print(f"CONCEPT: Domain='{conceptual_plan.get('domain', 'N/A')}', Task='{conceptual_plan.get('task', 'N/A')}'")
+    print(f"INFO: [Conceptualization] Domain='{conceptual_plan.get('domain', 'N/A')}', Task='{conceptual_plan.get('task', 'N/A')}'")
 
-    # 2. Strategy & Validation Loop
-    experiment_plan = None
-    last_error_log = None
-    for attempt in range(MAX_PLAN_RETRIES + 1):
-        print(f"\n--- [Orchestrator] Calling Strategy Agent (Attempt {attempt + 1}/{MAX_PLAN_RETRIES + 1}) ---")
-        
-        error_context = {"error_type": "SCHEMA_VALIDATION_ERROR", "error_log": last_error_log} if last_error_log else None
-        
-        plan_candidate = strategy_agent.run(client, conceptual_plan, TARGET_FRAMEWORK, MODEL_NAME, previous_error=error_context)
-        
-        if not plan_candidate:
-            last_error_log = "Agent returned an empty plan."
-            continue 
-
-        validation_errors = validate_plan(plan_candidate)
-        if not validation_errors:
-            print("INFO: [Orchestrator] Plan validation successful!")
-            experiment_plan = plan_candidate
-            break 
-        
-        print("ERROR: [Orchestrator] Plan validation failed.")
-        last_error_log = "\n".join(validation_errors)
-        print(f"Validation Issues:\n{last_error_log}")
-
+    # 4. Strategy Step
+    experiment_plan = strategy_agent.run(client, conceptual_plan, TARGET_FRAMEWORK, MODEL_NAME)
     if not experiment_plan:
-        print("\nFATAL ERROR: Strategy Agent failed to produce a valid experiment plan. Aborting.")
+        print("Could not create an experiment plan. Aborting.")
         return
 
+    # 5. Setup Experiment Artifacts Directory
     exp_dir = f"experiments/{experiment_plan.get('experiment_name', 'unnamed_experiment').replace(' ', '_')}"
     os.makedirs(exp_dir, exist_ok=True)
-    with open(f"{exp_dir}/final_validated_plan.json", 'w') as f:
+    with open(f"{exp_dir}/initial_plan.json", 'w') as f:
         json.dump(experiment_plan, f, indent=2)
+    print(f"INFO: [Orchestrator] Experiment plan saved to '{exp_dir}/initial_plan.json'")
 
-    # 3. Execution Loop
-    models_to_run = [experiment_plan["models"]["candidate"]] + experiment_plan["models"]["baselines"]
-    all_results = []
-    
-    for model_spec in models_to_run:
-        print(f"\n--- Starting Experiment for: {model_spec['model_id']} ---")
-        current_plan = experiment_plan
+    # --- 6. EXECUTION -> EVALUATION -> DEBUGGING LOOP ---
+    final_result = None
+    model_spec = experiment_plan  # For single-procedure tasks like model inversion
+    current_code_str = None
+
+    for attempt in range(MAX_DEBUG_RETRIES + 1):
+        print(f"\n--- [Orchestrator] Execution Cycle: Attempt {attempt + 1}/{MAX_DEBUG_RETRIES + 1} ---")
+
+        # Step 6a: Generate Code (only on the first attempt or if missing)
+        if current_code_str is None:
+            print("INFO: [Orchestrator] Calling Implementation Agent to generate initial code...")
+            code_obj = implementation_agent.run(client, experiment_plan, model_spec, MODEL_NAME)
+            current_code_str = code_obj.get("script")
         
-        for exec_attempt in range(MAX_EXEC_RETRIES + 1):
-            executable_code = implementation_agent.run(client, current_plan, model_spec, MODEL_NAME)
+        if not current_code_str:
+            print("FATAL: Code generation failed. Aborting.")
+            break
+
+        # Save the current version of the code for this attempt
+        script_path = os.path.join(exp_dir, f"attempt_{attempt+1}_script.py")
+        with open(script_path, 'w') as f: f.write(current_code_str)
+        print(f"INFO: [Orchestrator] Code for attempt {attempt+1} saved to '{script_path}'")
+        
+        # Step 6b: Execute the Code
+        exec_result = experimentation_agent.run({"script": current_code_str})
+
+        # Step 6c: Evaluate the Outcome
+        if exec_result.get("status") == "COMPLETED_SUCCESSFULLY":
+            print("INFO: [Orchestrator] Execution completed. Calling Evaluator Agent for peer review...")
+            evaluation = evaluator_agent.run(
+                client=client,
+                hypothesis=experiment_plan.get('hypothesis'),
+                execution_results=exec_result.get('results'),
+                model_name=MODEL_NAME
+            )
+            print(f"INFO: [Evaluator Agent] Verdict: {evaluation.get('verdict')}")
+            print(f"INFO: [Evaluator Agent] Rationale: {evaluation.get('rationale')}")
+
+            if evaluation.get("verdict") == "VALIDATED":
+                print("SUCCESS: [Orchestrator] Experiment validated by Evaluator.")
+                final_result = exec_result.get('results')
+                final_result['procedure_id'] = experiment_plan.get('experiment_id')
+                break  # Exit the loop on a validated success!
             
-            # --- NEW CODE SAVING LOGIC ---
-            script_content = executable_code.get("script")
-            if not script_content:
-                print(f"FATAL: Code generation failed for {model_spec['model_id']}. Skipping model.")
-                break
+            else:  # Logical Failure found by Evaluator
+                print("ERROR: [Orchestrator] Evaluator found a logical failure in the results.")
+                # We will now fall through to the debugger, passing the evaluator's rationale as the error log
+                exec_result['status'] = 'LOGICAL_FAILURE'
+                exec_result['error_log'] = evaluation.get('rationale')
+        
+        # --- Step 6d: Debugging Intervention (if not successful) ---
+        # This block is reached if exec_result.status is RUNTIME_ERROR or LOGICAL_FAILURE
+        
+        # If we've reached max retries, the loop will terminate after this block
+        if attempt >= MAX_DEBUG_RETRIES:
+            print("FATAL: Maximum debugging retries reached. Aborting.")
+            break
 
-            # Construct a descriptive filename
-            model_id = model_spec['model_id']
-            attempt_suffix = f"_attempt_{exec_attempt + 1}" if exec_attempt > 0 else ""
-            script_filename = f"{model_id}{attempt_suffix}_script.py"
-            script_path = os.path.join(exp_dir, script_filename)
+        print("INFO: [Orchestrator] Calling Debugger Agent to fix the code...")
+        debug_result = debugger_agent.run(
+            client=client,
+            hypothesis=experiment_plan.get('hypothesis'),
+            original_code=current_code_str,
+            execution_log=exec_result.get('error_log', 'No log available.'),
+            model_name=MODEL_NAME
+        )
 
-            try:
-                with open(script_path, 'w') as f:
-                    f.write(script_content)
-                print(f"INFO: [Orchestrator] Generated code saved to '{script_path}'")
-            except IOError as e:
-                print(f"WARNING: [Orchestrator] Could not save script to file. Error: {e}")
-            # --- END OF NEW CODE SAVING LOGIC ---
+        print(f"INFO: [Debugger Agent] Analysis: {debug_result.get('analysis')}")
+        
+        if debug_result.get("decision") == "MODIFY_CODE" and debug_result.get("modified_code"):
+            print("INFO: [Orchestrator] Debugger provided a code modification. Retrying with new code...")
+            current_code_str = debug_result.get("modified_code") # The loop will now use this new code
+        else:
+            print("FATAL: [Orchestrator] Debugger could not fix the code or decided to escalate. Aborting experiment.")
+            break # Exit loop if debugger gives up
 
-            result = experimentation_agent.run(executable_code)
-
-            if result["status"] == "completed":
-                print(f"SUCCESS: Experiment for {model_spec['model_id']} completed.")
-                result['model_id'] = model_spec['model_id']
-                all_results.append(result)
-                break
-            
-            else:
-                print(f"ERROR: Execution Attempt {exec_attempt + 1}/{MAX_EXEC_RETRIES + 1} for {model_spec['model_id']} failed.")
-                print(f"Error Type: {result.get('error_type')}")
-                if exec_attempt >= MAX_EXEC_RETRIES:
-                    print(f"FATAL: Max execution retries reached for {model_spec['model_id']}. Aborting this model.")
-                    break
-
-                print("INFO: Attempting to self-correct by revising the plan for runtime error...")
-                revised_plan = strategy_agent.run(client, conceptual_plan, TARGET_FRAMEWORK, MODEL_NAME, previous_error=result)
-                
-                if not revised_plan or validate_plan(revised_plan):
-                    print("FATAL: Failed to revise the plan for runtime error, or revision was invalid. Aborting this model.")
-                    break
-                
-                current_plan = revised_plan
-                print("INFO: Plan revised for runtime error. Retrying experiment.")
-    
-    # 4. Analysis
-    if not all_results or len(all_results) < len(models_to_run):
-        print("\n--- Research Incomplete ---")
-        print("Not all models completed successfully. Final analysis cannot be performed.")
+    # --- 7. FINAL ANALYSIS ---
+    if not final_result:
+        print("\n--- Research Incomplete: No validated result was produced. ---")
     else:
         print("\n--- Research Complete: Generating Final Report ---")
-        final_report = analysis_agent.run(client, all_results, experiment_plan['hypothesis'], MODEL_NAME)
+        # Analysis agent expects a list of results, even if there's only one.
+        final_report = analysis_agent.run(client, [final_result], experiment_plan, MODEL_NAME)
         print("\n" + "="*20 + " FINAL REPORT " + "="*20)
         print(final_report)
         print("="*54)
@@ -164,6 +150,29 @@ def main():
         with open(report_path, "w") as f:
             f.write(final_report)
         print(f"Report saved to {report_path}")
+
+        print("\n--- Aggregating Time-Series Data for Frontend ---")
+        frontend_data = {}
+        experiment_id = experiment_plan.get('experiment_id')
+        
+        if experiment_id:
+            time_series_data = final_result.get('time_series_data')
+            # time_series_data = final_result.get('results', {}).get('time_series_data')
+            if time_series_data:
+                frontend_data[experiment_id] = time_series_data
+                
+                # Save the aggregated data to a file
+                progress_path = os.path.join(exp_dir, "progress_metrics.json")
+                try:
+                    with open(progress_path, 'w') as f:
+                        json.dump(frontend_data, f, indent=2)
+                    print(f"SUCCESS: Time-series data successfully saved to '{progress_path}'")
+                except IOError as e:
+                    print(f"ERROR: Could not save progress data file. {e}")
+            else:
+                print("INFO: No time-series data was found in the final validated result.")
+        else:
+            print("WARNING: Could not determine experiment_id to save progress data.")
 
 if __name__ == "__main__":
     main()
