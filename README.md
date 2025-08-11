@@ -1,203 +1,177 @@
-Input: Researcher describes the research idea (e.g., “I want to compare Transformer and Mamba on long-context summarization”).
-
-
-Planning: AI figures out:
-
-
-Which benchmarks are relevant
-
-
-Which experiments to run
-
-
-Which metrics to collect
-
-
-Implementation: AI writes code for each experiment.
-
-
-Execution: Code is run.
-
-
-Analysis: Results are collected and summarized.
-
-
-Output: Report + ready-to-share code.
-
-
-
-Why Full Scope is Hard in 5 Hours
-Multi-domain expertise: Benchmark discovery, experiment planning, and code generation for multiple frameworks is a lot of moving parts.
-
-
-Running time: Real ML benchmarks can take hours/days.
-
-
-Infra complexity: Need datasets, GPU access, and code environment automation.
-
-
-
-How to Scope It for a Hackathon
-You can fake or shortcut the heavy parts so the demo still feels magical without actually training huge models.
- Here’s a scoped, 5-hour hackathon-friendly version:
-
-Refined Idea: “Auto-Experiment Designer & Runner” (Prototype)
-Input: Researcher describes an experiment.
-
-
-AI Planning:
-
-
-Identify benchmark datasets (from a small, curated list you preload).
-
-
-Select metrics.
-
-
-Propose experimental setup.
-
-
-Code Generation:
-
-
-Use templates + LLM to fill in dataset/model-specific details.
-
-
-Support just 2–3 preloaded ML tasks (e.g., text classification, image classification, regression).
-
-
-Execution:
-
-
-Instead of hours of training, run tiny fast models (logistic regression, small CNN) on toy subsets.
-
-
-Output:
-
-
-Results table + AI-written summary (e.g., “Model A outperforms Model B by 12% on Accuracy, but loses on F1”).
-
-
-Generated README.md with code + results.
-
-
-
-Example Demo Flow
-Judge says:
- “I want to compare a CNN and a ResNet on CIFAR-10 accuracy.”
-
-
-AI outputs:
-
-
-Selected benchmark: CIFAR-10
-
-
-Metrics: Accuracy, F1
-
-
-Experimental plan: Train both models for 3 epochs.
-
-
-Code auto-generates, runs on CPU in ~1–2 minutes.
-
-
-System produces:
-
-
-Plot comparing results.
-
-
-Written summary: “ResNet achieved 74.3% accuracy, 12% higher than CNN, but required 3× more parameters.”
-
-
-GitHub-ready code folder.
-
-
-
-Technical Shortcut Ideas
-Preload datasets (MNIST, CIFAR-10, IMDB sentiment).
-
-
-Use small models so training is seconds/minutes.
-
-
-Cache results to avoid reruns.
-
-
-Template code for PyTorch/Scikit-learn and just swap dataset/model names.
-
-
-Use LLM for:
-
-
-Natural language → experiment config
-
-
-Code templating
-
-
-Result interpretation
-
-
-
-Why This Works for Judges
-Looks like a miniature “AutoML for researchers” system.
-
-
-Combines LLM reasoning + tool use + code execution.
-
-
-Output is tangible: code, results, and analysis in one go.
-
-
-Feels like something you could scale to real research with more time.
-
-
-
-If you want, I can give you a 5-hour build plan that gets you from blank repo to demo-ready with this scoped “Auto-Experiment Designer & Runner” — so you can walk in and impress judges without frying your GPU.
-Do you want me to draft that plan?
-
-### Example Demo Flow
-Input from researcher:
- “I want to test a convolutional network that uses GELU activations and depthwise separable convolutions.”
-
-
-AI Planning Agent:
-
-
-Chooses metrics: accuracy, F1-score
-
-
-Chooses baselines: Standard CNN, ResNet18
-
-
-Chooses dataset: CIFAR-10 (already downloaded)
-
-
-Sets training params: 3 epochs for speed
-
-
-AI Codegen Agent:
-
-
-Takes a PyTorch CNN template and modifies it to use GELU + depthwise separable layers.
-
-
-Generates training script, evaluation script.
-
-
-Execution Agent:
-
-
-Runs experiments on CPU/tiny GPU for minutes.
-
-
-Produces plots + results.
-
-
-AI Reporting Agent:
-
-
-Writes a 3–5 sentence “research finding” summary.
-
+# Cognition Research - AI-Powered ML Experiment Platform
+
+An autonomous research platform that designs, implements, executes, and analyzes machine learning experiments from natural language descriptions. Built for the 6-hour Cognition hackathon challenge.
+
+## 🎯 Purpose
+
+Cognition Research automates the entire machine learning research pipeline:
+
+1. **Input**: Researcher describes an experiment in natural language
+2. **Planning**: AI agents design the experiment architecture, select metrics, and choose baselines
+3. **Implementation**: AI generates runnable PyTorch code tailored to the experiment
+4. **Execution**: Code runs on Modal's serverless infrastructure with GPU support
+5. **Analysis**: AI analyzes results and generates research summaries with visualizations
+
+## 🏗️ Architecture
+
+### Multi-Agent System
+The platform uses specialized AI agents orchestrated through a central controller:
+
+- **Conceptualization Agent** (`src/server/src/agents/conceptualization_agent.py`) - Understands research intent and domain
+- **Strategy Agent** (`src/server/src/agents/strategy_agent.py`) - Plans experiment architecture and validation
+- **Implementation Agent** (`src/server/src/agents/implementation_agent.py`) - Generates PyTorch code
+- **Experimentation Agent** (`src/server/src/agents/experimentation_agent.py`) - Executes experiments on Modal
+- **Analysis Agent** (`src/server/src/agents/analysis_agent.py`) - Analyzes results and generates reports
+
+### Infrastructure Components
+
+**Backend Server** (`src/server/`)
+- FastAPI server with Redis for state management
+- Orchestrator for coordinating multi-agent workflows
+- RESTful API endpoints for experiment lifecycle management
+- Background task processing for long-running experiments
+
+**Frontend Interface** (`src/frontend/`)
+- Next.js 15 web application with TypeScript
+- Real-time experiment progress tracking
+- Interactive results dashboard with metrics visualization
+- Modern UI with Tailwind CSS and glass morphism design
+
+**Cloud Execution** (`src/server/src/modal/`)
+- Modal integration for serverless ML experiment execution
+- GPU/CPU resource management
+- Persistent volume storage for artifacts and datasets
+- Timeout and memory configuration for different experiment types
+
+## 📊 Features
+
+### Experiment Design
+- Natural language to structured experiment specification
+- Automatic baseline model selection (CNN, ResNet18)
+- CIFAR-10 dataset with configurable training parameters
+- Fixed metrics: accuracy, F1-score, loss curves
+
+### Code Generation
+- Template-based PyTorch code generation
+- Support for custom architectures (GELU activations, depthwise separable convolutions)
+- Automatic training and evaluation script creation
+- Error handling and retry mechanisms
+
+### Execution Pipeline
+- Serverless execution on Modal infrastructure
+- Real-time progress tracking and status updates
+- Artifact storage and retrieval
+- Comprehensive error logging and debugging
+
+### Results Analysis
+- Automated metrics comparison between models
+- Visualization generation (loss curves, accuracy plots)
+- AI-generated research summaries
+- Exportable results and code artifacts
+
+## 🚀 API Endpoints
+
+### Core Experiment Flow
+- `POST /api/start` - Initialize new experiment with natural language query
+- `GET /api/poll/{experiment_id}/status` - Get overall experiment status
+- `GET /api/poll/{experiment_id}/plan` - Get planning stage results
+- `GET /api/poll/{experiment_id}/codegen` - Get code generation results
+- `GET /api/poll/{experiment_id}/execution` - Get execution results
+
+### File Management
+- `GET /api/experiments/{experiment_id}/files` - List experiment artifacts
+- `GET /api/experiments/{experiment_id}/files/{filename}` - Download specific files
+- `POST /api/subagent/store_file` - Store experiment artifacts
+- `POST /api/subagent/update_kv` - Update experiment metadata
+
+## 🛠️ Technology Stack
+
+### AI & ML
+- **LLMs**: Claude 4.1 for all agent reasoning and code generation
+- **ML Framework**: PyTorch with torchvision for model implementations
+- **Metrics**: scikit-learn for evaluation metrics
+
+### Backend
+- **Framework**: FastAPI with async support
+- **Database**: Redis for experiment state and caching
+- **Cloud**: Modal for serverless ML execution
+- **Task Queue**: Background task processing
+
+### Frontend
+- **Framework**: Next.js 15 with React
+- **Language**: TypeScript for type safety
+- **Styling**: Tailwind CSS with custom glass morphism components
+- **Charts**: Recharts for metrics visualization
+
+### Infrastructure
+- **Deployment**: Railway for web services
+- **Container**: Docker with multi-stage builds
+- **Environment**: Python 3.11+ with Poetry dependency management
+
+## 📁 Project Structure
+
+```
+/
+├── src/
+│   ├── frontend/                 # Next.js web application
+│   │   ├── src/
+│   │   │   ├── app/             # App router pages
+│   │   │   ├── components/      # React components
+│   │   │   └── types/           # TypeScript definitions
+│   │   └── package.json
+│   │
+│   ├── server/                   # FastAPI backend
+│   │   ├── src/
+│   │   │   ├── agents/          # AI agent implementations
+│   │   │   ├── modal/           # Modal cloud integration
+│   │   │   ├── endpoints.py     # API endpoint definitions
+│   │   │   └── orchestrator.py  # Multi-agent coordination
+│   │   ├── main.py              # FastAPI app entry point
+│   │   └── pyproject.toml       # Poetry dependencies
+│   │
+│   └── modal_execution.py        # Modal runner script
+│
+├── results/                      # Generated experiment results
+├── scripts/                      # Utility scripts and examples
+├── infra/                        # Infrastructure configuration
+├── PRD.md                       # Product Requirements Document
+└── README.md                    # This file
+```
+
+## 🎯 Scope & Limitations (MVP)
+
+**In Scope:**
+- Single dataset (CIFAR-10)
+- Fixed metrics (accuracy, F1-score, loss curves)
+- Two baseline models (basic CNN, ResNet18)
+- Fast training (1-3 epochs for demo speed)
+- CPU/GPU execution on Modal
+
+**Out of Scope:**
+- Multi-dataset catalog
+- User authentication
+- Experiment registry/history
+- Multi-job concurrency
+- Production error handling
+
+## 📝 Example Usage
+
+```bash
+# Natural language input
+"Test a CNN with GELU activations and depthwise separable convolutions"
+
+# System automatically:
+# 1. Plans experiment with CIFAR-10, accuracy/F1 metrics, CNN/ResNet18 baselines
+# 2. Generates custom PyTorch model code with GELU + depthwise separable layers
+# 3. Executes training on Modal infrastructure
+# 4. Compares results: "Custom model achieved 78% accuracy, 4% better than basic CNN"
+```
+
+## 🚧 Development Status
+
+This is a hackathon MVP demonstrating the core concept of autonomous ML research. The platform successfully orchestrates multi-agent workflows to transform natural language research ideas into executable experiments with automated analysis and reporting.
+
+---
+
+**Built with ❤️ during the Cognition hackathon**  
+*Powered by Next.js 15, Claude 4.1, and Modal serverless infrastructure*

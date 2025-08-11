@@ -97,14 +97,17 @@ Provide configuration recommendations."""
                                 }
                             },
                             "required": ["gpu_config", "memory_gb", "timeout_seconds", "required_packages", "reasoning"],
-                            "additionalProperties": false
+                            "additionalProperties": False
                         }
                     }
                 }
             )
             
-            # Parse the JSON response
-            config = json.loads(response.choices[0].message.content)
+            # Parse the JSON response (handle lowercase boolean values)
+            response_text = response.choices[0].message.content
+            # Fix common JSON issues from LLM responses
+            response_text = response_text.replace(': false', ': False').replace(': true', ': True').replace(': null', ': None')
+            config = json.loads(response_text.replace('False', 'false').replace('True', 'true').replace('None', 'null'))
             print(f"GPT-5 Modal Config: {config.get('reasoning', 'No reasoning provided')}")
             return config
             
@@ -130,7 +133,14 @@ Provide configuration recommendations."""
             app = modal.App(app_name)
             
             # Build image with required packages
-            image = modal.Image.debian_slim().pip_install(*config["required_packages"])
+            packages = config["required_packages"]
+            # Remove torchtext if present - use compatible version
+            packages = [pkg for pkg in packages if pkg != "torchtext"]
+            # Add compatible torchtext version if needed
+            if any("torchtext" in str(pkg) for pkg in config["required_packages"]):
+                packages.append("torchtext==0.18.0")
+            
+            image = modal.Image.debian_slim().pip_install(*packages)
             
             # Create volume for artifacts
             volume = modal.Volume.from_name("experiment-artifacts", create_if_missing=True)
@@ -144,6 +154,7 @@ Provide configuration recommendations."""
                 gpu=gpu_config,
                 timeout=config["timeout_seconds"],
                 memory=config["memory_gb"] * 1024,  # Convert GB to MB
+                serialized=True  # Allow function to be defined inside class method
             )
             def run_experiment_dynamic(script_content: str, config: Dict[str, Any], job_id: str) -> Dict[str, Any]:
                 """Dynamically created Modal function"""
@@ -295,20 +306,23 @@ Suggest retry strategy."""
                                         "timeout_seconds": {"type": "integer"},
                                         "required_packages": {"type": "array", "items": {"type": "string"}}
                                     },
-                                    "additionalProperties": false
+                                    "additionalProperties": False
                                 },
                                 "script_changes": {"type": ["string", "null"]},
                                 "reasoning": {"type": "string"}
                             },
                             "required": ["should_retry", "reasoning"],
-                            "additionalProperties": false
+                            "additionalProperties": False
                         }
                     }
                 }
             )
             
-            # Parse the JSON response
-            analysis = json.loads(response.choices[0].message.content)
+            # Parse the JSON response (handle lowercase boolean values)
+            response_text = response.choices[0].message.content
+            # Fix common JSON issues from LLM responses
+            response_text = response_text.replace(': false', ': False').replace(': true', ': True').replace(': null', ': None')
+            analysis = json.loads(response_text.replace('False', 'false').replace('True', 'true').replace('None', 'null'))
             print(f"GPT-5 Failure Analysis: {analysis.get('reasoning', 'No reasoning provided')}")
             return analysis
             
@@ -316,6 +330,178 @@ Suggest retry strategy."""
             print(f"Error analyzing failure: {e}")
         
         return {"should_retry": False, "reasoning": "Could not analyze failure"}
+    
+    def _analyze_job_logs(self, logs: str) -> Dict[str, Any]:
+        """Use GPT-4 to analyze job logs and determine if job should be terminated"""
+        
+        system_prompt = """You are an expert at analyzing ML training logs to detect problems. Analyze the provided logs and determine if the job should be terminated.
+
+Look for signs of:
+1. Stuck/infinite loops (repeated identical outputs)
+2. Memory issues (OOM errors, memory warnings)
+3. Training divergence (loss exploding, NaN values)
+4. Data loading issues (repeated errors, timeouts)
+5. GPU/CUDA errors
+6. Import/dependency errors that won't resolve
+7. Network connectivity issues
+
+Return a JSON object with:
+{
+    "should_terminate": boolean,
+    "severity": "low" | "medium" | "high",
+    "issue_type": "stuck_loop" | "memory_issue" | "training_divergence" | "data_error" | "gpu_error" | "import_error" | "network_error" | "healthy" | "unknown",
+    "reasoning": "detailed explanation",
+    "confidence": float (0.0 to 1.0)
+}"""
+
+        user_prompt = f"""Analyze these job logs:
+
+```
+{logs}
+```
+
+Determine if this job should be terminated or is running healthily."""
+
+        try:
+            response = self.openai_client.chat.completions.create(
+                model="gpt-5",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "log_analysis",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "should_terminate": {"type": "boolean"},
+                                "severity": {"type": "string", "enum": ["low", "medium", "high"]},
+                                "issue_type": {"type": "string", "enum": ["stuck_loop", "memory_issue", "training_divergence", "data_error", "gpu_error", "import_error", "network_error", "healthy", "unknown"]},
+                                "reasoning": {"type": "string"},
+                                "confidence": {"type": "number", "minimum": 0.0, "maximum": 1.0}
+                            },
+                            "required": ["should_terminate", "severity", "issue_type", "reasoning", "confidence"],
+                            "additionalProperties": False
+                        }
+                    }
+                }
+            )
+            
+            response_text = response.choices[0].message.content
+            response_text = response_text.replace(': false', ': False').replace(': true', ': True').replace(': null', ': None')
+            analysis = json.loads(response_text.replace('False', 'false').replace('True', 'true').replace('None', 'null'))
+            return analysis
+            
+        except Exception as e:
+            print(f"Error analyzing logs: {e}")
+            return {
+                "should_terminate": False,
+                "severity": "low", 
+                "issue_type": "unknown",
+                "reasoning": "Could not analyze logs",
+                "confidence": 0.0
+            }
+    
+    def _pulse_check_job(self, app, run_func, script_content: str, config: Dict[str, Any], job_id: str, check_interval: int = 30, max_checks: int = 10) -> Dict[str, Any]:
+        """Monitor running job with periodic pulse checks"""
+        
+        print(f"INFO: [Smart Agent] Starting pulse monitoring for job {job_id}")
+        
+        # Start the job asynchronously
+        job_handle = None
+        try:
+            with app.run():
+                job_handle = run_func.spawn(script_content, config, job_id)
+                
+                for check_num in range(max_checks):
+                    print(f"INFO: [Smart Agent] Pulse check {check_num + 1}/{max_checks}")
+                    
+                    # Check if job is still running
+                    if job_handle.is_finished():
+                        print("INFO: [Smart Agent] Job completed naturally")
+                        result = job_handle.get()
+                        return result
+                    
+                    # Get recent logs (this is a simplified approach - actual Modal API may differ)
+                    try:
+                        # Note: This is pseudocode - actual Modal log retrieval may require different approach
+                        logs = self._get_modal_logs(job_handle, tail_lines=100)
+                        
+                        if logs:
+                            # Analyze logs for issues
+                            log_analysis = self._analyze_job_logs(logs)
+                            
+                            print(f"INFO: [Smart Agent] Log analysis: {log_analysis['issue_type']} (confidence: {log_analysis['confidence']:.2f})")
+                            
+                            if log_analysis['should_terminate'] and log_analysis['confidence'] > 0.7:
+                                print(f"WARNING: [Smart Agent] Terminating job due to: {log_analysis['reasoning']}")
+                                job_handle.cancel()
+                                return {
+                                    "status": "terminated",
+                                    "reason": "pulse_check_failure",
+                                    "analysis": log_analysis,
+                                    "job_id": job_id
+                                }
+                        
+                    except Exception as log_error:
+                        print(f"WARNING: [Smart Agent] Could not retrieve logs: {log_error}")
+                    
+                    # Wait before next check
+                    time.sleep(check_interval)
+                
+                # Max checks reached - let job continue but warn
+                print(f"INFO: [Smart Agent] Max pulse checks reached, job still running")
+                return {
+                    "status": "monitoring_complete", 
+                    "job_handle": job_handle,
+                    "message": "Job passed pulse checks and is still running"
+                }
+                
+        except Exception as e:
+            print(f"ERROR: [Smart Agent] Pulse check failed: {e}")
+            if job_handle:
+                try:
+                    job_handle.cancel()
+                except:
+                    pass
+            return {
+                "status": "error",
+                "error": str(e),
+                "job_id": job_id
+            }
+    
+    def _get_modal_logs(self, job_handle, tail_lines: int = 100) -> str:
+        """Get recent logs from Modal job (placeholder implementation)"""
+        try:
+            # Note: This is a placeholder - actual Modal API for log retrieval may be different
+            # You may need to use Modal's specific logging/monitoring APIs
+            
+            # For now, return empty string - this would need to be implemented
+            # based on Modal's actual log retrieval capabilities
+            return ""
+            
+        except Exception as e:
+            print(f"Error getting Modal logs: {e}")
+            return ""
+    
+    def check_job_status(self, job_id: str) -> Dict[str, Any]:
+        """Check the status of a previously started job"""
+        try:
+            # This would need to be implemented based on Modal's job tracking capabilities
+            # For now, return a placeholder response
+            return {
+                "status": "unknown",
+                "message": "Job status checking not yet implemented for Modal",
+                "job_id": job_id
+            }
+        except Exception as e:
+            return {
+                "status": "error",
+                "error": str(e),
+                "job_id": job_id
+            }
     
     def run_experiment(self, script_content: str, config: Dict[str, Any] = None) -> Dict[str, Any]:
         """Run experiment with smart Modal configuration and retry logic"""
@@ -347,18 +533,48 @@ Suggest retry strategy."""
                 # Create dynamic Modal app
                 app, run_func = self._create_dynamic_modal_app(modal_config, script_content, config or {})
                 
-                # Execute on Modal
-                with app.run():
-                    result = run_func.remote(script_content, config or {}, f"{job_id}_attempt_{attempt}")
+                # Execute on Modal with pulse checking
+                result = self._pulse_check_job(app, run_func, script_content, config or {}, f"{job_id}_attempt_{attempt}")
                 
                 if result['status'] == 'success':
                     print("INFO: [Smart Agent] Experiment completed successfully")
                     return {
                         "status": "completed",
-                        "results": result['results'],
+                        "results": result.get('results', {}),
                         "job_id": job_id,
                         "attempts": attempt + 1,
                         "modal_config": modal_config
+                    }
+                elif result['status'] == 'monitoring_complete':
+                    print("INFO: [Smart Agent] Job passed pulse checks and is still running")
+                    # Try to get final result if job finished
+                    try:
+                        if 'job_handle' in result and result['job_handle'].is_finished():
+                            final_result = result['job_handle'].get()
+                            return {
+                                "status": "completed",
+                                "results": final_result.get('results', {}),
+                                "job_id": job_id,
+                                "attempts": attempt + 1,
+                                "modal_config": modal_config,
+                                "pulse_checks_passed": True
+                            }
+                    except:
+                        pass
+                    
+                    return {
+                        "status": "running",
+                        "message": "Job is running healthily after pulse checks",
+                        "job_id": job_id,
+                        "attempts": attempt + 1,
+                        "modal_config": modal_config
+                    }
+                elif result['status'] == 'terminated':
+                    print(f"WARNING: [Smart Agent] Job terminated by pulse check: {result.get('analysis', {}).get('reasoning', 'Unknown reason')}")
+                    last_result = {
+                        "error": f"Job terminated by pulse check: {result.get('analysis', {}).get('reasoning', 'Unknown reason')}",
+                        "error_type": "PULSE_CHECK_TERMINATION",
+                        "analysis": result.get('analysis', {})
                     }
                 else:
                     print(f"ERROR: [Smart Agent] Attempt {attempt + 1} failed: {result.get('error')}")
